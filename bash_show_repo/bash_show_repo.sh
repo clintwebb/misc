@@ -37,7 +37,7 @@ function parse_git_branch_sshagent() {
     fi
   fi
 }
-if [[ "${PROMPT_SSHAGENT,,} =~ ^(y(es)|1|true)$ ]]; then
+if [[ ${PROMPT_SSHAGENT,,} =~ ^(y(es)|1|true)$ ]]; then
   export PS1="\u@\h \[\e[32m\]\w \[\e[91m\]\$(parse_git_branch_sshagent)\[\e[00m\]$ "
 else
   export PS1="\u@\h \[\e[32m\]\w \[\e[91m\]\$(parse_git_branch)\[\e[00m\]$ "
