@@ -9,5 +9,5 @@ It can also show some **** if the SSH agent isn't active.  This is very likely u
 
 In the .bashrc, can simply do
 
-export PROMPT_SSHAGENT=y
+PROMPT_SSHAGENT=y
 source tools/bash_show_repo.sh
