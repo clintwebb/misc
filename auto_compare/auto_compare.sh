@@ -29,8 +29,10 @@ function compare() {
     echo
     echo '------------------------------------------------'
     sleep 2
+		return 1
   else
     rm ${HASH_FILE}.output
+		return 0
   fi
 }
 
@@ -101,5 +103,5 @@ function remove_entry() {
 case $1 in
   add|new)     add_entry "${@:2}"    ;;
   remove|del)  remove_entry "${@:2}" ;;
-  compare|*)   compare               ;;
+  compare|*)   compare; exit $?      ;;
 esac
