@@ -1,15 +1,18 @@
 #!/bin/bash
-# Author: Clinton Webb, 2025
-# (c) Copyright 2025, Clinton Webb.  All rights reserved.
+# Author: Clinton Webb, 2024
+# (c) Copyright 2024, Clinton Webb.  All rights reserved.
 
 # This script is used to gather file system information in order to compare with other systems.
-# It is intended to be run on each target machine with a label, and the information is stored in an sqlite db file which will need to be moved between servers.
+# It is intended to be run on each target machine with a label, and the information is stored 
+# in an sqlite db file which will need to be moved between servers.
 
 # ./grabber.sh <command> <env> [location]
 # For example:
 #    ./grabber.sh get uat /opt/broker
 
-# It will go through all the files in the location and store information about it.  It can even be told to get md5sum totals of the files in order to compare contents... however, that would not be recommended in a location with large files, or large number of files.
+# It will go through all the files in the location and store information about it.  
+# It can even be told to get md5sum totals of the files in order to compare contents... 
+# however, that would not be recommended in a location with large files, or large number of files.
 
 # Likely commands:
 #  get     : get all the generic info (permissions, ownership, filename, size)
