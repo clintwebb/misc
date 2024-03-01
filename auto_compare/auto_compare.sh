@@ -30,7 +30,7 @@ function compare() {
 
 function add_entry() {
   if [[ -z "$1" ]]; then
-    echo "Need to provide files/folder wanting to add."
+    echo "Need to provide files/folders wanting to add."
     sleep 1
     exit 1
   fi
@@ -59,11 +59,41 @@ function add_entry() {
     else
       echo "Unable to Access: $1"
     fi
+
     shift
   done
 }
 
+
+function remove_entry() {
+  if [[ -z "$1" ]]; then
+    echo "Need to provide files/folders wanting to remove."
+    sleep 1
+    exit 1
+  fi
+  while [[ -n "$1" ]]; do
+    # If a '/' is included in the end of the parameter, strip it out.
+    local ENTRY="${1%/}"
+
+    if [[ -d "$ENTRY" ]]; then
+      for II in $ENTRY/*; do
+        if [[ -e $II ]]; then remove_entry $II; fi
+      done
+    else
+      echo "Removed: $ENTRY"
+
+      grep -Ev " ${1}\$" ${HASH_FILE} > ${HASH_FILE}.new
+      rm ${HASH_FILE}; mv ${HASH_FILE}.new ${HASH_FILE}
+    fi
+
+    shift
+  done
+}
+
+
+
 case $1 in
-  add)  add_entry "${@:2}" ;;
-  *)    compare            ;;
+  add)        add_entry "${@:2}"    ;;
+  remove|del) remove_entry "${@:2}" ;;
+  *)          compare               ;;
 esac
