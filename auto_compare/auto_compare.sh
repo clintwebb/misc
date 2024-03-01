@@ -10,7 +10,7 @@
 
 HASH_FILE=~/.hash.md5
 
-set -o pipefaile
+set -o pipefail
 
 
 function compare() {
