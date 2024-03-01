@@ -2,11 +2,17 @@
 # Copyright 2024, Clinton Webb
 # This script is used to keep track of files contents and compare them if changed.
 #
-# To Add files to the hash:
-#  auto_compare add somefile.txt
-#
 # To check if any file that was hashed has changed.
 #  auto_comapre
+#
+# To Add files or folders to the hash:
+#  auto_compare add somefile.txt
+#  auto_compare add somefolder/
+#
+# To Remove files or folders from the hash:
+#  ( NOTE that when removing folders, it will only remove files it actually finds in the real specified folder. )
+#  auto_compare remove somefile.txt
+#  auto_compare remove somefolder/
 
 HASH_FILE=~/.hash.md5
 
@@ -93,7 +99,7 @@ function remove_entry() {
 
 
 case $1 in
-  add)        add_entry "${@:2}"    ;;
-  remove|del) remove_entry "${@:2}" ;;
-  *)          compare               ;;
+  add|new)     add_entry "${@:2}"    ;;
+  remove|del)  remove_entry "${@:2}" ;;
+  compare|*)   compare               ;;
 esac
