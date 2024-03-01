@@ -42,27 +42,22 @@ function add_entry() {
       for II in $ENTRY/*; do
         if [[ -e $II ]]; then add_entry $II; fi
       done
-    elif [[ -e "$ENTRY" ]]; then
+    elif [[ -r "$ENTRY" ]]; then
 
       # Get current hash (the first one if multiple exist)
       local H_ORIG=$(grep -E " ${1}\$" ${HASH_FILE}|head -n 1)
 
       # Get New hash and compare.
       local H_NEW=$(md5sum "${1}")
-      if [[ $? -ne 0 ]]; then
-        echo "Failed!"
-      else
+      if [[ "$H_ORIG" != "$H_NEW" ]]; then
+        echo "Changed: $ENTRY"
 
-        if [[ "$H_ORIG" != "$H_NEW" ]]; then
-          echo "Changed: $ENTRY"
-
-          grep -Ev " ${1}\$" ${HASH_FILE} > ${HASH_FILE}.new
-          echo "$H_NEW" >> ${HASH_FILE}.new
-          rm ${HASH_FILE}; mv ${HASH_FILE}.new ${HASH_FILE}
-        fi
+        grep -Ev " ${1}\$" ${HASH_FILE} > ${HASH_FILE}.new
+        echo "$H_NEW" >> ${HASH_FILE}.new
+        rm ${HASH_FILE}; mv ${HASH_FILE}.new ${HASH_FILE}
       fi
     else
-      echo "UNKNOWN: $1"
+      echo "Unable to Access: $1"
     fi
     shift
   done
