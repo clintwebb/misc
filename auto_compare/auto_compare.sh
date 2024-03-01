@@ -10,6 +10,9 @@
 
 HASH_FILE=~/.hash.md5
 
+set -o pipefaile
+
+
 function compare() {
   md5sum -c ${HASH_FILE} &> ${HASH_FILE}.output
   if [[ $? -ne 0 ]]; then
@@ -46,13 +49,17 @@ function add_entry() {
 
       # Get New hash and compare.
       local H_NEW=$(md5sum "${1}")
+      if [[ $? -ne 0 ]]; then
+        echo "Failed!"
+      else
 
-      if [[ "$H_ORIG" != "$H_NEW" ]]; then
-        echo "Changed: $ENTRY"
+        if [[ "$H_ORIG" != "$H_NEW" ]]; then
+          echo "Changed: $ENTRY"
 
-        grep -Ev " ${1}\$" ${HASH_FILE} > ${HASH_FILE}.new
-        echo "$H_NEW" >> ${HASH_FILE}.new
-        rm ${HASH_FILE}; mv ${HASH_FILE}.new ${HASH_FILE}
+          grep -Ev " ${1}\$" ${HASH_FILE} > ${HASH_FILE}.new
+          echo "$H_NEW" >> ${HASH_FILE}.new
+          rm ${HASH_FILE}; mv ${HASH_FILE}.new ${HASH_FILE}
+        fi
       fi
     else
       echo "UNKNOWN: $1"
