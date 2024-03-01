@@ -48,7 +48,7 @@ function add_entry() {
       local H_NEW=$(md5sum "${1}")
 
       if [[ "$H_ORIG" != "$H_NEW" ]]; then
-        echo "Change: $ENTRY"
+        echo "Changed: $ENTRY"
 
         grep -Ev " ${1}\$" ${HASH_FILE} > ${HASH_FILE}.new
         echo "$H_NEW" >> ${HASH_FILE}.new
