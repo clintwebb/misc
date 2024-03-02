@@ -21,6 +21,7 @@
 
 
 DB_FILE=${DB_FILE:-grabber.db}
+#DEBUG=1
 
 function usage() {
   echo "parameters required"
@@ -55,7 +56,7 @@ CREATE TABLE Settings (
   Name STRING,
   Value STRING
 );
-INSERT INTO Settings (Name, Value) VALUES ("Version", "1");
+INSERT INTO Settings (Name, Value) VALUES ('Version', '1');
 
 CREATE TABLE Files ( 
  FileID INTEGER UNIQUE PRIMARY KEY, 
@@ -114,9 +115,9 @@ function grab() {
   fi
 
   if [[ $MD5 == 'md5' ]]; then
-    find -L $TARG -exec ./grabber.sh process_md5 $EnvID '{}' \;
+    find -L $TARG -exec $0 process_md5 $EnvID '{}' \;
   else
-    find -L $TARG -exec ./grabber.sh process $EnvID '{}' \;
+    find -L $TARG -exec $0 process $EnvID '{}' \;
   fi
 }
 
@@ -139,9 +140,9 @@ function process() {
   local xGroups=$(echo "$OUTP"|awk '{print $4}')
   local xSize=$(echo "$OUTP"|awk '{print $5}')
 
-#  echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
+  [[ $DEBUG ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
   xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);")
-#  echo "FileID: $xFileID"
+  [[ $DEBUG ]] && echo "FileID: $xFileID"
 }
 
 function process_md5() {
@@ -164,13 +165,13 @@ function process_md5() {
   local xSize=$(echo "$OUTP"|awk '{print $5}')
 
   if [[ $xDir -ne 0 ]]; then
-    #  echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
+    [[ $DEBUG ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
     xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);")
-    #  echo "FileID: $xFileID"
+    [[ $DEBUG ]] && echo "FileID: $xFileID"
   else
-    local xMD5hash=$(md5sum $FILE|awk '{print $1}')
+    local xMD5hash=$(md5sum "$FILE"|awk '{print $1}')
     xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process, Md5hash) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0, '$xMD5hash');")
-    #  echo "FileID: $xFileID"
+    [[ $DEBUG ]] && echo "FileID: $xFileID"
   fi
 }
 
@@ -217,7 +218,7 @@ function compare() {
     local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
 
     # Now look for the other file from the second environment that has the same name.
-#    echo "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';"
+    [[ $DEBUG ]] && echo "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';"
     local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';")
     if [[ $BxFileID -le 0 ]]; then
       echo "$1: $FileName missing on $2"
@@ -252,7 +253,7 @@ function compare() {
 }
 
 
-## Fix will generate output that can essentially be scripted to fix things between the environments.
+# Fix will generate output that can essentially be scripted to fix things between the environments.
 # The first argument is the source, the second is the destination (what should be fixed to match the source)
 function fix() {
   if [[ -z "$2" ]]; then
@@ -297,9 +298,9 @@ function fix() {
       if [[ $AxP != $BxP ]]; then
         echo -e "\n## $FileName \t($AxP) ($BxP)"
         
-#        echo "local FileX=$(printf '%q' \"$FileName\")"
+        [[ $DEBUG ]] && echo "local FileX=$(printf '%q' \"$FileName\")"
         local FileX=$(printf '%q' "$FileName")
-#sleep 20
+        [[ $DEBUG ]] && sleep 20
 
         local AxOwner=$(query "SELECT Owner FROM Files WHERE FileID=$AxFileID LIMIT 1;")
         local AxGroup=$(query "SELECT Groups FROM Files WHERE FileID=$AxFileID LIMIT 1;")
@@ -361,6 +362,63 @@ function fix() {
   done
 }
 
+# After gathering all the information about files, with this, we want to get the MD5 sum of
+# a file, and then list all the other environments/files that have the same content.
+function find_file() {
+
+  declare -A env_list
+
+  ### Check if files in the DB do not have MD5sum's and warn the user.
+
+
+  # go through the list of files presented.
+  while [[ -n "$1" ]]; do
+    if [[ -d "$1" ]]; then
+      # This is a directory, so call it again
+
+      for ENTRY in $1/*; do
+        if [[ -e $ENTRY ]]; then
+          find_file "$ENTRY"
+        fi
+      done
+
+    elif [[ -r "$1" ]]; then
+
+      # Get the MD5sum of the specified file.
+      local xMD5hash=$(md5sum "$1"|awk '{print $1}')
+
+      query "UPDATE Files SET Process=0"
+      local xFound=0
+
+      echo "$1:"
+
+      # Search the Database for any files that have that same MD5sum
+      local AxFileID=$(query "SELECT FileID FROM Files WHERE Md5hash='$xMD5hash' AND Process=0 LIMIT 1;")
+      while [[ -n "$AxFileID" ]]; do
+        local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+        local EnvID=$(query "SELECT EnvID FROM Files WHERE FileID=$AxFileID";)
+        local EnvName=${env_list["$EnvID"]}
+        if [[ -z $EnvName ]]; then
+          # We dont have the env name cached, so looked it up and add to the hash-array.
+          EnvName=$(query "SELECT Name FROM Environments WHERE EnvID=$EnvID";)
+          env_list["$EnvID"]=$EnvName
+        fi
+
+        query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID"
+
+        echo -e "\t$FileName \t($EnvName)"
+
+        AxFileID=$(query "SELECT FileID FROM Files WHERE Md5hash='$xMD5hash' AND Process=0 LIMIT 1;")
+      done
+
+    else
+      echo "Unable to open: $1"
+    fi
+
+    shift
+  done
+}
+
 
 #----------------------------------
 
@@ -387,6 +445,7 @@ case $1 in
   owner)        compare "$2" "$3" "Owner,Groups"       ;;
   compare_md5)  compare "$2" "$3" "Md5hash" ;;
   fix)          fix "$2" "$3" ;;
+  find)         find_file "${@:2}" ;;
   *)            usage ;;
 
 esac
