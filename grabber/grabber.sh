@@ -22,15 +22,82 @@
 
 DB_FILE=${DB_FILE:-grabber.db}
 #DEBUG=1
+#DEBUG=2
 
 function usage() {
-  echo "parameters required"
+
+  cat << EOF
+
+Grabber
+-------
+
+Grabber is commonly used to check the contents of one system against another system.
+But it does have some additional functionality that is useful in different situations.
+
+Generally you would copy the script over to the first target server, and run 'grabber.sh init'
+Then you would run the script on that server (in this example, we are calling it 'one')
+  Example:   grabber.sh get one /data
+
+This will grab all the info of all files in that /data folder and store it in a grabber.db file.
+Then you would copy the script, and that grabber.db file to the other server (which we will call 'two')
+And then do a similar thing.
+  Example:   grabber.sh get two /data
+
+
+
+Commands:
+
+  init
+        initialise the database.
+        Example:
+          grabber.sh init
+
+  get
+        get the contents of the system
+        Example:
+          grabber.sh get one /data
+
+  md5
+        Obtain content data (md5sum) to be able to determine differences.
+
+  compare
+        Compare the difference between one environment and another.
+        It will provide the information, which includes Owner, Group and Permissions.
+
+  owner
+        Similar to compare, but doesn't look at the Permissions.
+        Only really useful if checking ownership.
+
+  compare_md5
+        Only works if 'md5' was used to gather the information.
+        But is useful to verify content is the same or different.
+
+  fix
+        Will output script content to fix the second environment to match the first environment indicated.
+        Example:
+          grabber.sh fix one two
+
+  find
+        Only used with md5, allows you to find a file in any environment source.
+        Example:
+          grabber.sh find /data/thisfile.txt
+        This will do an md5sum on /data/thisfile.txt and will then look throught the
+        database to find any files that have the same content.
+
+  remove_dup
+        Will output scripting to duplicate files in the second environment that
+        also exist in the first environment.
+
+EOF
   exit 1
 }
 
 
 # This query function will allow us to perform an operation
 function query() {
+
+  [[ $DEBUG -gt 1 ]] && echo "$1" >&2
+
   if [[ -e .init.sql ]]; then
     sqlite3 -init .init.sql $DB_FILE "$1" 2>/dev/null|tail -n +2
   else
@@ -89,6 +156,11 @@ function get_setting() {
 }
 
 
+function get_EnvID() {
+  query "SELECT EnvID FROM Environments WHERE Name='$1';"
+}
+
+
 function grab() {
   CENV=$1
   TARG=$2
@@ -108,7 +180,7 @@ function grab() {
     exit 1
   fi
 
-  local EnvID=$(query "SELECT EnvID FROM Environments WHERE Name='$CENV';");
+  local EnvID=$(get_EnvID $CENV)
   if [[ $EnvID -le 0 ]]; then
     echo "Environment '$CENV' doesn't exist.  Creating."
     EnvID=$(query_insert "INSERT INTO Environments (Name) VALUES ('$CENV');")
@@ -195,13 +267,13 @@ function compare() {
     QQ="$3"
   fi
 
-  local EA=$(query "SELECT EnvID FROM Environments WHERE Name='$1';")
+  local EA=$(get_EnvID "$1")
   if [[ $EA -le 0 ]]; then
     echo "Environment '$1' not found"
     exit 1
   fi
 
-  local EB=$(query "SELECT EnvID FROM Environments WHERE Name='$2';")
+  local EB=$(get_EnvID "$2")
   if [[ $EB -le 0 ]]; then
     echo "Environment '$2' not found"
     exit 1
@@ -263,13 +335,13 @@ function fix() {
 
   local QQ="Owner,Groups,Perms"
 
-  local EA=$(query "SELECT EnvID FROM Environments WHERE Name='$1';")
+  local EA=$(get_EnvID "$1")
   if [[ $EA -le 0 ]]; then
     echo "Environment '$1' not found"
     exit 1
   fi
 
-  local EB=$(query "SELECT EnvID FROM Environments WHERE Name='$2';")
+  local EB=$(get_EnvID "$2")
   if [[ $EB -le 0 ]]; then
     echo "Environment '$2' not found"
     exit 1
@@ -338,12 +410,10 @@ function fix() {
           fi
 
           sleep 1
-
         fi
       fi
 
       query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID OR FileID=$BxFileID"
-      
     fi
 
     AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
@@ -362,14 +432,44 @@ function fix() {
   done
 }
 
+
+# Check against the specified environment and alert if there are files without md5sums.
+# If no environment is mentioned, then it will check all environments.
+function check_md5_exists() {
+  if [[ -z "$1" ]]; then
+    # Check all environments.
+    local xFound=$(query "SELECT FileID FROM Files WHERE Dir=0 AND Md5hash IS NULL LIMIT 1;")
+  else
+    # Check specific environment
+    local zEnvID=$(get_EnvID "$1")
+    if [[ -z $zEnvID ]]; then
+      return 1;
+    else
+      local xFound=$(query "SELECT FileID FROM Files WHERE Dir=0 AND EnvID=$zEnvID AND Md5hash IS NULL LIMIT 1;")
+    fi
+  fi
+
+  if [[ -z $xFound ]]; then
+    return 0;
+  else
+    echo "WARNING: Files in system do not have MD5 values, so wont be able to compare"
+    return 1;
+  fi
+}
+
 # After gathering all the information about files, with this, we want to get the MD5 sum of
 # a file, and then list all the other environments/files that have the same content.
 function find_file() {
 
+  if [[ -z "$1" ]]; then
+    echo "Parameters missing."
+    return 1;
+  fi
+
   declare -A env_list
 
   ### Check if files in the DB do not have MD5sum's and warn the user.
-
+  check_md5_exists
 
   # go through the list of files presented.
   while [[ -n "$1" ]]; do
@@ -419,6 +519,64 @@ function find_file() {
   done
 }
 
+# This will output scripting to remove files in the second environment that have the same content as files in the first environment.
+function remove_dup() {
+
+  if [[ -z "$1" ]]; then
+    echo "Parameters missing."
+    return 1;
+  fi
+
+  local zEA=$(get_EnvID "$1")
+  local zEB=$(get_EnvID "$2")
+
+  if [[ $zEA -eq 0 ]]; then
+    echo "Missing environment: $1"
+    return 1
+  fi
+
+  if [[ $zEB -eq 0 ]]; then
+    echo "Missing environment: $2"
+    return 1
+  fi
+
+  ### Check if files in the DB do not have MD5sum's and warn the user.
+  check_md5_exists $1
+  check_md5_exists $2
+
+  # First, we need to set the process flag for all files to 0.
+  query "UPDATE Files SET Process=0"
+
+  # First we process all the entries for the second environment, and compare against the environment.
+  local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$zEB AND Dir=0 AND Process=0 LIMIT 1;")
+  while [[ -n "$BxFileID" ]]; do
+    local HASH=$(query "SELECT Md5hash FROM Files WHERE FileID=$BxFileID";)
+    local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$BxFileID";)
+
+    [[ $DEBUG ]] && echo "Checking: $FileName"
+
+    # Now look for the other file from the second environment that has the same name.
+    local AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$zEA AND Md5hash='$HASH';")
+    if [[ $AxFileID -le 0 ]]; then
+      query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID"
+    else
+      local FileNameSrc=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+      local FileX=$(printf '%q' "$FileName")
+
+      echo "# ($1): $FileNameSrc"
+      echo "# ($2): $FileName"
+      echo "rm $FileX"
+      echo
+
+      query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID OR FileID=$AxFileID"
+    fi
+
+    BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$zEB AND Dir=0 AND Process=0 LIMIT 1;")
+  done
+}
+
+
+
 
 #----------------------------------
 
@@ -446,6 +604,7 @@ case $1 in
   compare_md5)  compare "$2" "$3" "Md5hash" ;;
   fix)          fix "$2" "$3" ;;
   find)         find_file "${@:2}" ;;
+  remove_dup)   remove_dup "$2" "$3" ;;
   *)            usage ;;
 
 esac
