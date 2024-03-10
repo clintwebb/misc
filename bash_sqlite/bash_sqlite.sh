@@ -25,7 +25,7 @@ function query_ro() {
 
 # This query function will allow us to perform an operation.  
 # This was modified from the previous version, because it wasn't working quite right on an example legacy redhat7 server (it kept on outputting an extra blank line)
-# still investigating.
+# Investigated.  Seems to be an issue with older versions (like in Redhat 7 or older) which causes an extra line to be output, which needs to be trimmed.
 function query2() {
   [[ $SQL_DEBUG -gt 1 ]] && echo "$1" >&2
 
