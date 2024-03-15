@@ -8,7 +8,7 @@ This is showing the current username and server, followed by the current directo
 
 It can also show some **** if the SSH agent isn't active.  This is very likely useful when using SSH protocol to sync.
 
-As an example, in the .bashrc, can simply do (assuming the script has been placed in ~/tools/):
+As an example, in the .bash_profile, can simply do (assuming the script has been placed in ~/tools/):
 ```
 # This will show the current branch if in a git repo (but will not show warning if ssh-agent not set)
 source ~/tools/bash_show_repo/bash_show_repo.sh
