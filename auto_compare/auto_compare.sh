@@ -13,8 +13,12 @@
 #  ( NOTE that when removing folders, it will only remove files it actually finds in the real specified folder. )
 #  auto_compare remove somefile.txt
 #  auto_compare remove somefolder/
+#
+# To Save backups of the current files (incrementally)
+#  auto_compare backup
 
 HASH_FILE=~/.hash.md5
+HASH_BAKDIR=~/.hash.bak
 
 set -o pipefail
 
@@ -97,10 +101,49 @@ function remove_entry() {
   done
 }
 
+function backup() {
+  # if the BAK dir doesn't exist... create it.
+  test -d $HASH_BAKDIR || mkdir -p $_
+
+  # Store date.
+  local DDT=$(date +%F-%H%M)
+  local DDF=$HASH_BAKDIR/hash-$DDT.tar.gz
+  local DDS=$HASH_BAKDIR/hash.snar
+
+  if [[ -e $DDF ]]; then
+    echo "Backup file already exists: $DDF"
+    echo "Skipping..."
+    exit 1
+  fi
+
+  if [[ ! -e ~/.hash.md5 ]]; then
+    echo "Nothing to backup... ~/.hash.md5 doesn't exist"
+    exit 1
+  fi
+
+  # First need to get the list of files being tracked.
+#  declare DDL
+  cat ~/.hash.md5 | awk '{print $2}' > ~/.hash.tmp
+  readarray -t DDL < ~/.hash.tmp
+  rm ~/.hash.tmp
+
+  tar -z --verbose -p --warning=no-file-changed --create --file=$DDF --listed-incremental=$DDS "${DDL[@]}" > ~/.hash.out 2> ~/.hash.err
+  local RES=$?
+  if [[ $RES -eq 0 ]]; then
+    cat ~/.hash.out
+    rm ~/.hash.out ~/.hash.err
+  else
+    echo "Failure!!!  Investigate!  (RES: $RES)"
+    cat ~/.hash.err
+    sleep 1
+    exit 1
+  fi
+}
 
 
 case $1 in
   add|new)     add_entry "${@:2}"    ;;
   remove|del)  remove_entry "${@:2}" ;;
+  backup)      backup                ;;
   compare|*)   compare; exit $?      ;;
 esac
