@@ -55,6 +55,9 @@ function add_entry() {
       done
     elif [[ -r "$ENTRY" ]]; then
 
+      # if ~/.hash.md5 doesn't exist, then make sure it does.
+      [[ -e ${HASH_FILE} ]] || touch ${HASH_FILE}
+
       # Get current hash (the first one if multiple exist)
       local H_ORIG=$(grep -E " ${1}\$" ${HASH_FILE}|head -n 1)
 
