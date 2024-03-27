@@ -5,6 +5,16 @@ Some items will be used frequently, but also some items will be very useful but 
 
 
 <details>
+<summary>Outputting multiple items</summary>
+
+Often might need to handle something with multiple number... like
+```
+item1 item2 item3
+```
+
+To do that... can do something like `echo "item{1..3}"`
+</details>
+<details>
 <summary>Assigning output to a variable.</summary>
 
 The power of linux/bash scripting is being able to integrate command-line tools into it easily and simply.
