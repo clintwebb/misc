@@ -29,4 +29,26 @@ You can use the **Event Viewer** to see this information.
 Can also use Filters....
 </details>
 
+<details>
+<summary>Obtain installed Windows Key via Linux</summary>
+
+Install chntpw tool.
+
+```
+sudo apt install chntpw
+```
+
+To look into the relevant registry file mount the Windows disk and open it like so:
+
+```
+chntpw -e /path/to/windisk/Windows/System32/config/software
+```
+
+Now to get the decoded DigitalProductId enter this command:
+
+```
+dpi \Microsoft\Windows NT\CurrentVersion\DigitalProductId
+```
+</details>
+
 ## Powershell Stuff
