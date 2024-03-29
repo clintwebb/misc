@@ -7,6 +7,7 @@ Windows is often very different to Linux.
 <details>
 <summary>Viewing Logon/Logoff History</summary>
 
+----
 see [answer](https://answers.microsoft.com/en-us/windows/forum/all/i-want-to-view-login-history-for-the-last-week/5fe01b49-0570-47c1-bf1f-edf2efed8202)
 
 You can use the **Event Viewer** to see this information.
@@ -27,11 +28,14 @@ You can use the **Event Viewer** to see this information.
    a. Scroll down to the Date and Time that you are looking for.
 
 Can also use Filters....
+
+----
 </details>
 
 <details>
 <summary>Obtain installed Windows Key via Linux</summary>
 
+----
 Install chntpw tool.
 
 ```
@@ -49,6 +53,7 @@ Now to get the decoded DigitalProductId enter this command:
 ```
 dpi \Microsoft\Windows NT\CurrentVersion\DigitalProductId
 ```
+----
 </details>
 
 ## Powershell Stuff
