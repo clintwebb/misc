@@ -45,7 +45,7 @@ sudo apt install chntpw
 To look into the relevant registry file mount the Windows disk and open it like so:
 
 ```
-chntpw -e /path/to/windisk/Windows/System32/config/software
+chntpw -e Windows/System32/config/SOFTWARE
 ```
 
 Now to get the decoded DigitalProductId enter this command:
