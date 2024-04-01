@@ -85,7 +85,7 @@ Commands:
         database to find any files that have the same content.
 
   remove_dup
-        Will output scripting to duplicate files in the second environment that
+        Will output scripting to remove duplicate files in the second environment that
         also exist in the first environment.
 
 EOF
@@ -93,17 +93,37 @@ EOF
 }
 
 
-# This query function will allow us to perform an operation
-function query() {
 
-  [[ $DEBUG -gt 1 ]] && echo "$1" >&2
+# This query function will allow us to perform an operation, but wait for 20 seconds if the file is locked.
+# without a setting like this, if there is another operation on the file occuring at the same time, it will fail. 
+# 
+# NOTE: Older versions of sqlite3 (which is the latest one from Redhat7) does not handle some things quite as nice, 
+#       so setting the function based on at least that version number.  Some alterations may need to be done for 
+#       other specific version.
+if [[ $(sqlite3 --version | awk '{ print $1 }' | awk -F. '{ print ($1*10000)+($2*100)+($3) }') -le 30717 ]]; then
 
-  if [[ -e .init.sql ]]; then
-    sqlite3 -init .init.sql $DB_FILE "$1" 2>/dev/null|tail -n +2
-  else
-    sqlite3 $DB_FILE "$1" 2>/dev/null
-  fi
-}
+  # This query function will allow us to perform an operation.  
+  # This was modified from the previous version, because it wasn't working quite right on an example legacy redhat7 server (it kept on outputting an extra blank line)
+  # Investigated.  Seems to be an issue with older versions (like in Redhat 7 or older) which causes an extra line to be output, which needs to be trimmed.
+  function query() {
+    [[ $SQL_DEBUG -gt 1 ]] && echo "$1" >&2
+    sqlite3 -init <(echo ".timeout 20000") $DB_FILE "$1" 2>/dev/null|tail -n +2
+  }
+  function query_ro() {
+    [[ $SQL_DEBUG -gt 1 ]] && echo "$1" >&2
+    sqlite3 -readonly -init <(echo ".timeout 20000") $DB_FILE "$1" 2>/dev/null|tail -n +2
+  }
+else
+  function query() {
+    [[ $SQL_DEBUG -gt 1 ]] && echo "$1" >&2
+    sqlite3 -init <(echo ".timeout 20000") $DB_FILE "$1" 2>/dev/null
+  }
+
+  function query_ro() {
+    [[ $SQL_DEBUG -gt 1 ]] && echo "$1" >&2
+    sqlite3 -readonly -init <(echo ".timeout 20000") $DB_FILE "$1" 2>/dev/null
+  }
+fi
 
 # This function is used when inserting into a table, and wanting the new RowID (primary key) returned. 
 function query_insert() {
@@ -150,16 +170,12 @@ EOF
 
 
 function get_setting() {
-  local NAME=$1
-  local VALUE=$(query "SELECT Value FROM Settings WHERE Name='$NAME';");
-  echo "$VALUE"
+  query_ro "SELECT Value FROM Settings WHERE Name='$1';"
 }
-
 
 function get_EnvID() {
-  query "SELECT EnvID FROM Environments WHERE Name='$1';"
+  query_ro "SELECT EnvID FROM Environments WHERE Name='$1';"
 }
-
 
 function grab() {
   CENV=$1
@@ -252,7 +268,7 @@ function ginfo() {
   local FileID=$2
 
   >&2 echo "SELECT $Item FROM Files WHERE FileID=$FileID LIMIT 1;"
-  query "SELECT $Item FROM Files WHERE FileID=$FileID LIMIT 1;"
+  query_ro "SELECT $Item FROM Files WHERE FileID=$FileID LIMIT 1;"
 }
 
 
@@ -284,21 +300,21 @@ function compare() {
 
 
   # First we process all the entries for the first environment, and compare the second environment.
-  local AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
+  local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
   while [[ -n "$AxFileID" ]]; do
-    local HASH=$(query "SELECT NameHash FROM Files WHERE FileID=$AxFileID";)
-    local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+    local HASH=$(query_ro "SELECT NameHash FROM Files WHERE FileID=$AxFileID";)
+    local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
 
     # Now look for the other file from the second environment that has the same name.
     [[ $DEBUG ]] && echo "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';"
-    local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';")
+    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';")
     if [[ $BxFileID -le 0 ]]; then
       echo "$1: $FileName missing on $2"
       query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID"
     else
 
-      local AxP=$(query "SELECT $QQ FROM Files WHERE FileID=$AxFileID LIMIT 1;")
-      local BxP=$(query "SELECT $QQ FROM Files WHERE FileID=$BxFileID LIMIT 1;")
+      local AxP=$(query_ro "SELECT $QQ FROM Files WHERE FileID=$AxFileID LIMIT 1;")
+      local BxP=$(query_ro "SELECT $QQ FROM Files WHERE FileID=$BxFileID LIMIT 1;")
 
       if [[ $AxP != $BxP ]]; then
         echo -e "$FileName \t($AxP) ($BxP)"
@@ -308,19 +324,19 @@ function compare() {
 
     fi
 
-    AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
+    AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
   done
 
 
   # Now list all the times in the second environment that was not in the first.
-  local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
+  local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
   while [[ -n "$BxFileID" ]]; do
-    local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$BxFileID";)
+    local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$BxFileID";)
 
     echo "$2: $FileName missing on $1"
     query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID"
 
-    BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
+    BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
   done
 }
 
@@ -352,20 +368,20 @@ function fix() {
 
 
   # First we process all the entries for the first environment, and compare the second environment.
-  local AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
+  local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
   while [[ -n "$AxFileID" ]]; do
-    local HASH=$(query "SELECT NameHash FROM Files WHERE FileID=$AxFileID";)
-    local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+    local HASH=$(query_ro "SELECT NameHash FROM Files WHERE FileID=$AxFileID";)
+    local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
 
     # Now look for the other file from the second environment that has the same name.
-    local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';")
+    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';")
     if [[ $BxFileID -le 0 ]]; then
       echo "#$1: $FileName missing on $2"
       query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID"
     else
    
-      local AxP=$(query "SELECT $QQ FROM Files WHERE FileID=$AxFileID LIMIT 1;")
-      local BxP=$(query "SELECT $QQ FROM Files WHERE FileID=$BxFileID LIMIT 1;")
+      local AxP=$(query_ro "SELECT $QQ FROM Files WHERE FileID=$AxFileID LIMIT 1;")
+      local BxP=$(query_ro "SELECT $QQ FROM Files WHERE FileID=$BxFileID LIMIT 1;")
       
       if [[ $AxP != $BxP ]]; then
         echo -e "\n## $FileName \t($AxP) ($BxP)"
@@ -374,13 +390,13 @@ function fix() {
         local FileX=$(printf '%q' "$FileName")
         [[ $DEBUG ]] && sleep 20
 
-        local AxOwner=$(query "SELECT Owner FROM Files WHERE FileID=$AxFileID LIMIT 1;")
-        local AxGroup=$(query "SELECT Groups FROM Files WHERE FileID=$AxFileID LIMIT 1;")
-        local AxPerms=$(query "SELECT Perms FROM Files WHERE FileID=$AxFileID LIMIT 1;")
+        local AxOwner=$(query_ro "SELECT Owner FROM Files WHERE FileID=$AxFileID LIMIT 1;")
+        local AxGroup=$(query_ro "SELECT Groups FROM Files WHERE FileID=$AxFileID LIMIT 1;")
+        local AxPerms=$(query_ro "SELECT Perms FROM Files WHERE FileID=$AxFileID LIMIT 1;")
 
-        local BxOwner=$(query "SELECT Owner FROM Files WHERE FileID=$BxFileID LIMIT 1;")
-        local BxGroup=$(query "SELECT Groups FROM Files WHERE FileID=$BxFileID LIMIT 1;")
-        local BxPerms=$(query "SELECT Perms FROM Files WHERE FileID=$BxFileID LIMIT 1;")
+        local BxOwner=$(query_ro "SELECT Owner FROM Files WHERE FileID=$BxFileID LIMIT 1;")
+        local BxGroup=$(query_ro "SELECT Groups FROM Files WHERE FileID=$BxFileID LIMIT 1;")
+        local BxPerms=$(query_ro "SELECT Perms FROM Files WHERE FileID=$BxFileID LIMIT 1;")
 
         if [[ "$AxOwner" != "$BxOwner" ]]; then
             if [[ "$AxGroup" != "$BxGroup" ]]; then
@@ -416,19 +432,19 @@ function fix() {
       query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID OR FileID=$BxFileID"
     fi
 
-    AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
+    AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Process=0 LIMIT 1;")
   done
 
 
   # Now list all the times in the second environment that was not in the first.
-  local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
+  local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
   while [[ -n "$BxFileID" ]]; do
-    local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$BxFileID";)
+    local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$BxFileID";)
 
     echo "# $2: $FileName missing on $1"
     query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID"
 
-    BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
+    BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
   done
 }
 
@@ -438,14 +454,14 @@ function fix() {
 function check_md5_exists() {
   if [[ -z "$1" ]]; then
     # Check all environments.
-    local xFound=$(query "SELECT FileID FROM Files WHERE Dir=0 AND Md5hash IS NULL LIMIT 1;")
+    local xFound=$(query_ro "SELECT FileID FROM Files WHERE Dir=0 AND Md5hash IS NULL LIMIT 1;")
   else
     # Check specific environment
     local zEnvID=$(get_EnvID "$1")
     if [[ -z $zEnvID ]]; then
       return 1;
     else
-      local xFound=$(query "SELECT FileID FROM Files WHERE Dir=0 AND EnvID=$zEnvID AND Md5hash IS NULL LIMIT 1;")
+      local xFound=$(query_ro "SELECT FileID FROM Files WHERE Dir=0 AND EnvID=$zEnvID AND Md5hash IS NULL LIMIT 1;")
     fi
   fi
 
@@ -493,14 +509,14 @@ function find_file() {
       echo "$1:"
 
       # Search the Database for any files that have that same MD5sum
-      local AxFileID=$(query "SELECT FileID FROM Files WHERE Md5hash='$xMD5hash' AND Process=0 LIMIT 1;")
+      local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE Md5hash='$xMD5hash' AND Process=0 LIMIT 1;")
       while [[ -n "$AxFileID" ]]; do
-        local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
-        local EnvID=$(query "SELECT EnvID FROM Files WHERE FileID=$AxFileID";)
+        local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+        local EnvID=$(query_ro "SELECT EnvID FROM Files WHERE FileID=$AxFileID";)
         local EnvName=${env_list["$EnvID"]}
         if [[ -z $EnvName ]]; then
           # We dont have the env name cached, so looked it up and add to the hash-array.
-          EnvName=$(query "SELECT Name FROM Environments WHERE EnvID=$EnvID";)
+          EnvName=$(query_ro "SELECT Name FROM Environments WHERE EnvID=$EnvID";)
           env_list["$EnvID"]=$EnvName
         fi
 
@@ -508,7 +524,7 @@ function find_file() {
 
         echo -e "\t$FileName \t($EnvName)"
 
-        AxFileID=$(query "SELECT FileID FROM Files WHERE Md5hash='$xMD5hash' AND Process=0 LIMIT 1;")
+        AxFileID=$(query_ro "SELECT FileID FROM Files WHERE Md5hash='$xMD5hash' AND Process=0 LIMIT 1;")
       done
 
     else
@@ -547,33 +563,36 @@ function remove_dup() {
   # First, we need to set the process flag for all files to 0.
   query "UPDATE Files SET Process=0"
 
-  # First we process all the entries for the second environment, and compare against the environment.
-  local BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$zEB AND Dir=0 AND Process=0 LIMIT 1;")
+  # First we process all the entries for the second environment, and compare against the first environment.
+  local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$zEB AND Dir=0 AND Process=0 LIMIT 1;")
   while [[ -n "$BxFileID" ]]; do
-    local HASH=$(query "SELECT Md5hash FROM Files WHERE FileID=$BxFileID";)
-    local FileName=$(query "SELECT FileName FROM Files WHERE FileID=$BxFileID";)
+    local HASH=$(query_ro "SELECT Md5hash FROM Files WHERE FileID=$BxFileID;")
+    local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$BxFileID;")
 
     [[ $DEBUG ]] && echo "Checking: $FileName"
 
-    # Now look for the other file from the second environment that has the same name.
-    local AxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$zEA AND Md5hash='$HASH';")
-    if [[ $AxFileID -le 0 ]]; then
-      query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID"
+    # Now look for another file from the second environment that has the same hash.
+    local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$zEA AND Md5hash='$HASH' AND Process=0 LIMIT 1;")
+    if [[ "$AxFileID" -le 0 ]]; then
+      query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID;"
     else
-      local FileNameSrc=$(query "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+      local FileNameSrc=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID;")
       local FileX=$(printf '%q' "$FileName")
 
-      echo "# ($1): $FileNameSrc"
-      echo "# ($2): $FileName"
+      echo "# ($1): $FileNameSrc ($AxFileID)"
+      echo "# ($2): $FileName ($BxFileID)" 
       echo "rm $FileX"
       echo
 
-      query "UPDATE Files SET Process=1 WHERE FileID=$BxFileID OR FileID=$AxFileID"
+      query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID OR FileID=$BxFileID;"
     fi
 
-    BxFileID=$(query "SELECT FileID FROM Files WHERE EnvID=$zEB AND Dir=0 AND Process=0 LIMIT 1;")
+    BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$zEB AND Dir=0 AND Process=0 LIMIT 1;")
   done
 }
+
+
+
 
 
 
@@ -605,6 +624,8 @@ case $1 in
   fix)          fix "$2" "$3" ;;
   find)         find_file "${@:2}" ;;
   remove_dup)   remove_dup "$2" "$3" ;;
+  missing)      compare  "$2" "$3" "Filename" ;;
+  combine)      combine "$2" ;;
   *)            usage ;;
 
 esac
