@@ -18,6 +18,7 @@ When removing a node from the cluster, it is imperative to:
 * migrate any vm's that are on the node that are remaining
 * shutdown the node that is being removed
 * login to console of another node, and `pvecm delnode _nodename_`
+   * if quorum is not met, can try setting to only require 1 vote `pvecm expect 1`
 
 ----
 </details>
