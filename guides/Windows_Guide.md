@@ -57,3 +57,23 @@ dpi \Microsoft\Windows NT\CurrentVersion\DigitalProductId
 </details>
 
 ## Powershell Stuff
+
+<details>
+<summary>Test Network connection (like telnet)</summary>
+
+```
+Test-NetConnection -computername example.com -Port 443
+```
+</details>
+<details>
+<summary>Create DNS Entries (should be on the domain controller managing dns)</summary>
+
+```
+# 'A'
+Add-DnsServerResourceRecordA  -ZoneName "example.com" -CreatePtr -IPv4Address "10.1.2.118"   -Name "www1"
+Add-DnsServerResourceRecordA  -ZoneName "example.com" -CreatePtr -IPv4Address "10.1.2.119"   -Name "www2"
+ 
+# 'CNAME'
+Add-DnsServerResourceRecordCName -Name "www" -HostNameAlias "www1.example.com." -ZoneName "example.com"
+```
+</details>
