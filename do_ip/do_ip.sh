@@ -1,8 +1,6 @@
 #!/bin/bash
-# (c) Copyright, Clinton Webb, 2024
-#
-# 
-#
+# Author: Clinton Webb, 2024
+# (c) Copyright 2024, Clinton Webb.  All rights reserved.
 
 source /etc/do_ip.conf
 
