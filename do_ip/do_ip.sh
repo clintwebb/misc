@@ -8,7 +8,7 @@ source /etc/do_ip.conf
 # Assuming we running as root, but really dont need to (but what other default account should we set the service to use?)
 [[ -z "$HOME" ]] && export HOME=/root
 
-function do_init() {
+function do_install() {
   cat > /etc/systemd/system/do_ip.service <<EOF
 [Unit]
 Description=DigitalOcean IP mapping
@@ -58,8 +58,12 @@ function do_update() {
   done < <(doctl compute domain records list $DO_DOMAIN --no-header)
   
   if [[ -z $DO_RECID ]]; then
-    echo "Unable to find record ID. Investigate!"
-    exit 1
+    echo "Unable to find record ID.  Adding..."
+    doctl compute domain records create $DO_DOMAIN --record-type A --record-name $DO_AREC --record-data $EXIP
+    if [[ $? -gt 0 ]]; then
+      echo "Unable to register domain record.  Investigate!"
+      exit 1
+    fi
   fi
   
   if [[ "$DO_CURRIP" == "$EXIP" ]]; then
@@ -79,6 +83,6 @@ function do_update() {
 }
 
 case $1 in
-  init|-i|--init)  do_init ;;
+  install)         do_install ;;
   *)               do_update ;;
 esac
