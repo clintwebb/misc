@@ -64,6 +64,7 @@ function do_update() {
       echo "Unable to register domain record.  Investigate!"
       exit 1
     fi
+    exit 0
   fi
   
   if [[ "$DO_CURRIP" == "$EXIP" ]]; then
