@@ -8,7 +8,7 @@ source /etc/do_ip.conf
 
 # When running the script from the systemd service, it weirdly doesn't allocate a $HOME variable, which the doctl tool requires.
 # Assuming we running as root, but really dont need to (but what other default account should we set the service to use?)
-[[ -z "$HOME" ]]; && export HOME=/root
+[[ -z "$HOME" ]] && export HOME=/root
 
 function do_init() {
   cat > /etc/systemd/system/do_ip.service <<EOF
