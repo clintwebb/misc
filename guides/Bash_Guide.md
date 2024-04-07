@@ -62,14 +62,14 @@ This section contains things not specific about Bash, but often used in Bash env
 <summary>Tar split into multiple files.</summary>
 
 ----
-Often used when the tar-zip file will be larger than the storage available, and needs to be split into multiples.
+Often used when the tar-zip file will be larger than the transport storage available, and needs to be split into multiples.
 
-To archive/compress
+To archive/compress:
 ```
 tar cvzf - dir/ | split --bytes=49m - backup.tar.gz.
 ```
 
-To extract them
+Once all have been delivered to the target location, can extract them:
 ```
 cat backup.tar.gz.* | tar xzvf -
 ```
