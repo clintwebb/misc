@@ -6,8 +6,7 @@ Proxmox is a virtual infrastructure service (similar to vmware).
 
 ## Proxmox Stuff
 
-<details>
-<summary>Removing failed snapshot</summary>
+<details><summary>Removing failed snapshot</summary>
 
 ----
 When creating a backup and cancelling, or whatever reason and a snapshot is failing to be removed, can do something like:
@@ -22,8 +21,20 @@ pct listsnapshot 102
 ```
 ----
 </details>
-<details>
-<summary>Removing a node from a cluster</summary>
+<details><summary>Removing CT Volumes that exist but cannot be removed from the GUI. </summary>
+
+----
+In the GUI the volumes are presented, but it does not let you delete them, because they attached to a node that exists.  The GUI suggests to go into the Resources tab for that node and remove them there... however, those volumes are not showing up in that tab.
+```
+# list the volumes that are on the 'local-lvm' storage (as an example)
+pvesm list local-lvm
+
+# Now can remove the invalid volume 
+pvesm free local-lvm:vm-102-disk-4
+```
+----
+</details>
+<details><summary>Removing a node from a cluster</summary>
 
 ----
 When removing a node from the cluster, it is imperative to:
