@@ -11,9 +11,10 @@ Proxmox is a virtual infrastructure service (similar to vmware).
 
 ----
 When creating a backup and cancelling, or whatever reason and a snapshot is failing to be removed, can do something like:
-_in this example, 102 is the vmid_
+
 ```
 # login to the shell of the proxmox host the node is on
+# in this example, 102 is the vmid of the node we having problems with
 pct unlock 102
 pct listsnapshot 102
 pct delsnapshot 102 vzdump -force
