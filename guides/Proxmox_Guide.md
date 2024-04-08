@@ -2,16 +2,29 @@
 
 *(c) Copyright Clinton Webb*
 
-Proxmox is a virtual 
-
+Proxmox is a virtual infrastructure service (similar to vmware).
 
 ## Proxmox Stuff
 
 <details>
+<summary>Removing failed snapshot</summary>
+
+----
+When creating a backup and cancelling, or whatever reason and a snapshot is failing to be removed, can do something like:
+_in this example, 102 is the vmid_
+```
+# login to the shell of the proxmox host the node is on
+pct unlock 102
+pct listsnapshot 102
+pct delsnapshot 102 vzdump -force
+pct listsnapshot 102
+```
+----
+</details>
+<details>
 <summary>Removing a node from a cluster</summary>
 
 ----
-
 When removing a node from the cluster, it is imperative to:
 * ensure that interface is to another node.
 * ensure that no Replication is configured on the node
