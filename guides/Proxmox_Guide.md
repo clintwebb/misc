@@ -3,8 +3,28 @@
 *(c) Copyright Clinton Webb*
 
 Proxmox is a virtual infrastructure service (similar to vmware).
+_NOTE that this is not complete documentation, just things that I have found useful or needed over time._
 
-## Proxmox Stuff
+## Proxmox Tools
+
+<details><summary><b>pct</b> - for managing containers.</summary>
+
+* <details><summary>pct unlock</summary>
+
+  ----
+  if a container is locked, when it shouldnt be (because a task failed), this can be used to unlock it.
+
+  ```
+  # example to unlock container 102
+  pct unlock 102
+  ```
+  ----
+  </details>
+</details>
+  
+
+
+## Proxmox General Guidance
 
 <details><summary>Removing failed snapshot</summary>
 
@@ -43,7 +63,7 @@ When removing a node from the cluster, it is imperative to:
 * migrate any vm's that are on the node that are remaining
 * shutdown the node that is being removed
 * login to console of another node, and `pvecm delnode _nodename_`
-   * if quorum is not met, can try setting to only require 1 vote `pvecm expect 1`
+   * if quorum is not met, can try setting to only require 1 vote `pvecm expected 1`
 
 ----
 </details>
