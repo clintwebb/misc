@@ -3,6 +3,7 @@
 This document is not a full and deep bash tutorial, but describes the common methods that I use.
 Some items will be used frequently, but also some items will be very useful but only required rarely, so good to document to recall and re-use.
 
+https://www.gnu.org/software/bash/manual/html_node/index.html#SEC_Contents
 
 <details>
 <summary>Outputting multiple items</summary>
