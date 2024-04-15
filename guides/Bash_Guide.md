@@ -9,12 +9,24 @@ https://www.gnu.org/software/bash/manual/html_node/index.html#SEC_Contents
 <summary>Outputting multiple items</summary>
 
 ----
-Often might need to handle something with multiple number... like
+Often might need to handle something with multiple numbers... like
 ```
 item1 item2 item3
 ```
+To do that... can do something like `echo item{1..3}`
 
-To do that... can do something like `echo "item{1..3}"`
+For things that have multiple names, like if need to create the following folders...
+```
+folder/one folder/two folder/three
+```
+To do that... can do something like `mkdir folder/{one,two,three}`
+
+and can do multiples... with something like:
+```
+echo {folder,item}/{one,two,three}
+folder/one folder/two folder/three item/one item/two item/three
+```
+
 ----
 </details>
 <details>
