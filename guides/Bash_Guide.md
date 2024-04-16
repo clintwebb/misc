@@ -89,3 +89,15 @@ cat backup.tar.gz.* | tar xzvf -
 
 ----
 </details>
+<details>
+<summary>rsync copy of files</summary>  
+
+----
+Copying files from one location to another.  If done as root, can include owner/group of originals. Otherwise, it will be owned by the account it being transferred over.
+
+```
+rsync -avzHAXP --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
+```
+
+----
+</details>
