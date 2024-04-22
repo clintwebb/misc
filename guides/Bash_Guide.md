@@ -96,7 +96,12 @@ cat backup.tar.gz.* | tar xzvf -
 Copying files from one location to another.  If done as root, can include owner/group of originals. Otherwise, it will be owned by the account it being transferred over.
 
 ```
+# to make copies of files that are sym-linked.
 rsync -avzHAXP --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
+
+# to copy symlinks as symlinks
+rsync -avzlHAXP --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
+
 ```
 
 ----
