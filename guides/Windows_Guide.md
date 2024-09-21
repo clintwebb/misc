@@ -77,3 +77,10 @@ Add-DnsServerResourceRecordA  -ZoneName "example.com" -CreatePtr -IPv4Address "1
 Add-DnsServerResourceRecordCName -Name "www" -HostNameAlias "www1.example.com." -ZoneName "example.com"
 ```
 </details>
+<details>
+<summary>Execute powershell commands on remote servers</summary>
+
+```
+Invoke-Command -ComputerName Server01, Server02 -ScriptBlock {Get-UICulture}
+```
+</details>
