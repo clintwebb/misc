@@ -80,6 +80,7 @@ Add-DnsServerResourceRecordCName -Name "www" -HostNameAlias "www1.example.com." 
 <details>
 <summary>Execute powershell commands on remote servers</summary>
 
+[doco](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/running-remote-commands?view=powershell-7.4)
 ```
 Invoke-Command -ComputerName Server01, Server02 -ScriptBlock {Get-UICulture}
 ```
