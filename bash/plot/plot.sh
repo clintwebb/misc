@@ -76,7 +76,8 @@ while read -r line; do
   if [[ $line -gt $xMAX ]]; then
     CHA=$((xCELLS))
     CHB=0
-    CHC='X'
+    [[ $VV_AUTO -gt 0 ]] && CHC='^' || CHC='X'
+    #CHC='X'
   else
     (( xCELLS *= 10000 ))
     SPLIT=$(( xMAX - xMIN + 1 ))
