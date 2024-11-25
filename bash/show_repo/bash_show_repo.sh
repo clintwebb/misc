@@ -19,21 +19,27 @@
 #   source ~/work/clintwebb/misc/bash_show_repo/bash_show_repo.sh
 
 function parse_git_branch() {
-  git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
+  if git status 2> /dev/null|grep -q 'modified:'; then
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1 !!)/'
+  else
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1 )/'
+  fi
 }
 
 function parse_git_branch_sshagent() {
-  GG=$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')
+  local HH=
+  git status 2> /dev/null|grep -q 'modified:' && HH=' !!'
+  local GG=$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')
 
   if [[ -z "$GG" ]]; then
     if [[ -z "$SSH_AGENT_PID" ]]; then
-      echo "(****)"
+      echo "(****$HH)"
     fi
   else
     if [[ -z "$SSH_AGENT_PID" ]]; then
-      echo "($GG ****)"
+      echo "($GG ****$HH)"
     else
-      echo "($GG)"
+      echo "($GG$HH)"
     fi
   fi
 }
