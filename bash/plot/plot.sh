@@ -64,6 +64,8 @@ xMAX=$VV_MAX
 
 while read -r line; do
   xWIDTH=$(tput cols)
+  printf -v line '%d\n' "$line" 2>/dev/null
+#  echo "line: $line"
 
   if [[ $VV_AUTO -gt 0 ]]; then
     [[ $line -lt $xMIN ]] && xMIN=$line
