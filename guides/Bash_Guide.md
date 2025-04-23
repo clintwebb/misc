@@ -30,7 +30,7 @@ folder/one folder/two folder/three item/one item/two item/three
 ----
 </details>
 <details>
-<summary>Assigning output to a variable.</summary>
+<summary>Assigning output to a variable.</summary><p></p>
 
 ----
 The power of linux/bash scripting is being able to integrate command-line tools into it easily and simply.
@@ -49,7 +49,7 @@ FILES=$(ls)
 echo $FILES
 ```
 ----
-</details>
+</p></details>
 
 
 <details>
@@ -99,9 +99,8 @@ Copying files from one location to another.  If done as root, can include owner/
 # to make copies of files that are sym-linked.
 rsync -avzHAXP --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
 
-# to copy symlinks as symlinks
-rsync -avzlHAXP --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
-
+# to copy symlinks as symlinks (-l)
+rsync -avzHAXPl --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
 ```
 
 ----
