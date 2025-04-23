@@ -30,7 +30,7 @@ folder/one folder/two folder/three item/one item/two item/three
 ----
 </details>
 <details>
-<summary>Assigning output to a variable.</summary><p></p>
+<summary>Assigning output to a variable.</summary><p>
 
 ----
 The power of linux/bash scripting is being able to integrate command-line tools into it easily and simply.
@@ -63,6 +63,37 @@ if [[ "$1" =~ ^(development|test|uat|production)$ ]]; then
 else
   echo "Nothing Matched"
 fi
+```
+----
+</details>
+
+<details>
+<summary>Redirecting output</summary>
+
+----
+It is very commonly known to output some data from a tool into a file.
+```
+cat fred > barney
+```
+and if you are also wanting any stderr output to also go to that file, people often do
+```
+cat fred > barney 2>&1
+```
+However, what is more useful (but very uncommon), is to use `&>` to redirect both standard and error output to the same file
+```
+cat fred &> barney
+```
+And if wanting append to a file... can also do
+```
+cat fred &>> barney
+```
+An additional thing often useful is when piping output to another tool, and wanting to send both standard and error output.
+```
+# Pipe the output (standard only)
+cat fred | sort
+
+# Pipe the output (both standard and error)
+cat fred |& sort
 ```
 ----
 </details>
