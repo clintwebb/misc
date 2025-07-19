@@ -6,6 +6,23 @@ Some items will be used frequently, but also some items will be very useful but 
 https://www.gnu.org/software/bash/manual/html_node/index.html#SEC_Contents
 
 <details>
+<summary>Scripting Safety</summary>
+
+----
+Recommend in almost all scripts to have this at the top
+```
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+```
+This will ensure that if any part of the script fails, the script exits with a failure.  It makes it massively helpful in discovering issues when generating a script.  It will also fail if a variable is refenced that doesnt exist, which also helps in finding a mistyping that might be very hard to notice.
+
+More very good information about this, can be found here: http://redsymbol.net/articles/unofficial-bash-strict-mode/
+
+----
+</details>
+
+<details>
 <summary>Outputting multiple items</summary>
 
 ----
