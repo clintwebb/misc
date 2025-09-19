@@ -24,6 +24,13 @@ DB_FILE=${DB_FILE:-grabber.db}
 #DEBUG=1
 #DEBUG=2
 
+DEBUG=${DEBUG:-0}
+SQL_DEBUG=${SQL_DEBUG:-0}
+
+# if anything fails... exit the script.
+set -euo pipefail
+
+
 function usage() {
 
   cat << EOF
@@ -204,6 +211,8 @@ function grab() {
 
   if [[ $MD5 == 'md5' ]]; then
     find -L $TARG -exec $0 process_md5 $EnvID '{}' \;
+  elif [[ $MD5 == 'chunk' ]]; then
+    find -L $TARG -exec $0 process_chunk $EnvID '{}' \;
   else
     find -L $TARG -exec $0 process $EnvID '{}' \;
   fi
@@ -228,9 +237,9 @@ function process() {
   local xGroups=$(echo "$OUTP"|awk '{print $4}')
   local xSize=$(echo "$OUTP"|awk '{print $5}')
 
-  [[ $DEBUG ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
+  [[ $DEBUG -gt 0 ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
   xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);")
-  [[ $DEBUG ]] && echo "FileID: $xFileID"
+  [[ $DEBUG -gt 0 ]] && echo "FileID: $xFileID"
 }
 
 function process_md5() {
@@ -253,15 +262,46 @@ function process_md5() {
   local xSize=$(echo "$OUTP"|awk '{print $5}')
 
   if [[ $xDir -ne 0 ]]; then
-    [[ $DEBUG ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
+    [[ $DEBUG -gt 0 ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
     xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);")
-    [[ $DEBUG ]] && echo "FileID: $xFileID"
+    [[ $DEBUG -gt 0 ]] && echo "FileID: $xFileID"
   else
     local xMD5hash=$(md5sum "$FILE"|awk '{print $1}')
     xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process, Md5hash) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0, '$xMD5hash');")
-    [[ $DEBUG ]] && echo "FileID: $xFileID"
+    [[ $DEBUG -gt 0 ]] && echo "FileID: $xFileID"
   fi
 }
+
+function process_chunk() {
+  local xEnvID=$1
+  local FILE="$2"
+  echo "Processing '$FILE'"
+
+  local xNameHash=$(echo "$FILE"|md5sum|awk '{print $1}')
+
+  local xDir=0
+  if [[ -d "$FILE" ]]; then
+    xDir=1
+  fi
+
+  local OUTP=$(ls -ld "$FILE")
+
+  local xPerms=$(echo "$OUTP"|awk '{print $1}')
+  local xOwner=$(echo "$OUTP"|awk '{print $3}')
+  local xGroups=$(echo "$OUTP"|awk '{print $4}')
+  local xSize=$(echo "$OUTP"|awk '{print $5}')
+
+  if [[ $xDir -ne 0 ]]; then
+    [[ $DEBUG -gt 0 ]] && echo "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);"
+    xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0);")
+    [[ $DEBUG -gt 0 ]] && echo "FileID: $xFileID"
+  else
+    local xMD5hash=$(head -c 15M "$FILE"|md5sum|awk '{print $1}')
+    xFileID=$(query_insert "INSERT INTO Files (NameHash, EnvID, Dir, Perms, Owner, Groups, Size, Filename, Process, Md5hash) VALUES ('$xNameHash', $xEnvID, $xDir, '$xPerms', '$xOwner', '$xGroups', $xSize, '$FILE', 0, '$xMD5hash');")
+    [[ $DEBUG -gt 0 ]] && echo "FileID: $xFileID"
+  fi
+}
+
 
 function ginfo() {
   local Item=$1
@@ -306,8 +346,8 @@ function compare() {
     local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
 
     # Now look for the other file from the second environment that has the same name.
-    [[ $DEBUG ]] && echo "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';"
-    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND NameHash='$HASH';")
+    [[ $DEBUG -gt 0 ]] && echo "SELECT FileID FROM Files WHERE EnvID!=$EA AND NameHash='$HASH';"
+    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID!=$EA AND NameHash='$HASH';")
     if [[ $BxFileID -le 0 ]]; then
       echo "$1: $FileName missing on $2"
       query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID"
@@ -339,6 +379,164 @@ function compare() {
     BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EB AND Process=0 LIMIT 1;")
   done
 }
+
+# will show which files exist (based on chunk) in one server, but not in any of the other servers.
+function single() {
+
+  local EA=$(get_EnvID "$1")
+  if [[ $EA -le 0 ]]; then
+    echo "Environment '$1' not found"
+    exit 1
+  fi
+
+  # First, we need to set the process flag for all files to 0.
+  query "UPDATE Files SET Process=0"
+
+
+  # First we process all the entries for the first environment, and compare all the other environments.
+  local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Dir=0 AND Process=0 LIMIT 1;")
+  while [[ -n "$AxFileID" ]]; do
+    local HASH=$(query_ro "SELECT Md5hash FROM Files WHERE FileID=$AxFileID";)
+
+    # Now see if any file from the other environments that has the same file (based on hash).
+    [[ $DEBUG -gt 0 ]] && echo "SELECT FileID FROM Files WHERE EnvID!=$EA Md5hash='$HASH' LIMIT 1;"
+    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID!=$EA AND Md5hash='$HASH' LIMIT 1;")
+    if [[ $BxFileID -eq 0 ]]; then
+      local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+      echo "$1: $FileName"
+    fi
+    query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID OR Md5hash='$HASH'"
+
+    AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Dir=0 AND Process=0 LIMIT 1;")
+  done
+
+}
+
+function size_info() {
+
+  local EA=$(get_EnvID "$1")
+  if [[ $EA -le 0 ]]; then
+    echo "Environment '$1' not found"
+    exit 1
+  fi
+
+  local Total=0
+
+  # First, we need to set the process flag for all files to 0.
+  query "UPDATE Files SET Process=0"
+
+
+  # First we process all the entries for the first environment, and compare all the other environments.
+  local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Dir=0 AND Process=0 LIMIT 1;")
+  while [[ -n "$AxFileID" ]]; do
+    local HASH=$(query_ro "SELECT Md5hash FROM Files WHERE FileID=$AxFileID";)
+
+    # Now see if any file from the other environments that has the same file (based on hash).
+    [[ $DEBUG -gt 0 ]] && echo "SELECT FileID FROM Files WHERE EnvID!=$EA Md5hash='$HASH' LIMIT 1;"
+    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID!=$EA AND Md5hash='$HASH' LIMIT 1;")
+    if [[ $BxFileID -eq 0 ]]; then
+      local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+      local FileSize=$(query_ro "SELECT Size FROM Files WHERE FileID=$AxFileID";)
+      echo "$1: $FileName, $FileSize"
+
+      Total=$((Total + FileSize))
+
+    fi
+    query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID OR Md5hash='$HASH'"
+
+    AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$EA AND Dir=0 AND Process=0 LIMIT 1;")
+  done
+
+  local GB=$(echo "$Total" | numfmt --to=iec)
+  echo "Total: $Total ($GB)"
+
+}
+
+getsize() { set -- $(ls -dn "$1") && echo $5; }
+
+
+
+# will show which files exist (based on chunk) in one server, but not in any of the other servers, and will copy them to the specified location.
+function copy_missing() {
+
+  local EA=$(get_EnvID "$1")
+  if [[ $EA -le 0 ]]; then
+    echo "Environment '$1' not found"
+    exit 1
+  fi
+
+  local TARGET=$2
+  if [[ -z $TARGET ]]; then
+    echo "Need to provide target directory."
+    exit 1
+  fi
+
+  if [[ ! -d $TARGET ]]; then
+    echo "Target Directory doesnt exist: $TARGET"
+    exit 1
+  fi
+
+  # First, we need to set the process flag for all files to 0.
+  query "UPDATE Files SET Process=0"
+
+  # First we process all the entries for the first environment, and compare all the other environments.
+  local LoopQ="SELECT FileID FROM Files WHERE EnvID=$EA AND Dir=0 AND Process=0 LIMIT 1;"
+  local AxFileID=$(query_ro "$LoopQ")
+  while [[ -n "$AxFileID" ]]; do
+    local HASH=$(query_ro "SELECT Md5hash FROM Files WHERE FileID=$AxFileID";)
+
+    # Now see if any file from the other environments that has the same file (based on hash).
+    [[ $DEBUG -ge 2 ]] && echo "SELECT FileID FROM Files WHERE EnvID!=$EA AND Md5hash='$HASH' LIMIT 1;"
+    local BxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID!=$EA AND Md5hash='$HASH' LIMIT 1;")
+#     [[ $DEBUG -gt 0 ]] && echo "result: $BxFileID"
+    if [[ $BxFileID -eq 0 ]]; then
+      local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$AxFileID";)
+
+
+#       [[ $DEBUG -gt 0 ]] && echo "$FileName"
+
+      local GOGO=1
+      if [[ -e "$TARGET/$FileName" ]]; then
+        local FileSize=$(query_ro "SELECT Size FROM Files WHERE FileID=$AxFileID";)
+        local GoSize=$(getsize "$TARGET/$FileName")
+
+        if [[ $FileSize -eq $GoSize ]]; then
+          # The file already exists, so we not copying.
+          GOGO=0
+        else
+          # If the file exists, it might not have the write permissions, so set some
+          chmod u+w "$TARGET/$FileName"
+        fi
+
+      fi
+
+#       echo "$1: $FileDir/$FileName"
+
+      local TDIR=$(dirname "$FileName")
+
+      if [[ ! -d "$TARGET/$TDIR" ]]; then
+        [[ $DEBUG -gt 0 ]] && echo "New Dir: $TARGET/$TDIR"
+        mkdir -p "$TARGET/$TDIR"
+      fi
+
+      if [[ $GOGO -eq 0 ]]; then
+        echo "Skipping: $FileName"
+      else
+        echo "Copy: $FileName"
+        [[ $DEBUG -ge 2 ]] && echo "cp -v \"$FileName\" \"$TARGET/$TDIR\""
+        cp "$FileName" "$TARGET/$TDIR"
+      fi
+
+    fi
+    query "UPDATE Files SET Process=1 WHERE FileID=$AxFileID OR Md5hash='$HASH'"
+
+    AxFileID=$(query_ro "$LoopQ")
+  done
+
+}
+
+
+
 
 
 # Fix will generate output that can essentially be scripted to fix things between the environments.
@@ -386,9 +584,9 @@ function fix() {
       if [[ $AxP != $BxP ]]; then
         echo -e "\n## $FileName \t($AxP) ($BxP)"
         
-        [[ $DEBUG ]] && echo "local FileX=$(printf '%q' \"$FileName\")"
+        [[ $DEBUG -gt 0 ]] && echo "local FileX=$(printf '%q' \"$FileName\")"
         local FileX=$(printf '%q' "$FileName")
-        [[ $DEBUG ]] && sleep 20
+        [[ $DEBUG -gt 0 ]] && sleep 20
 
         local AxOwner=$(query_ro "SELECT Owner FROM Files WHERE FileID=$AxFileID LIMIT 1;")
         local AxGroup=$(query_ro "SELECT Groups FROM Files WHERE FileID=$AxFileID LIMIT 1;")
@@ -569,7 +767,7 @@ function remove_dup() {
     local HASH=$(query_ro "SELECT Md5hash FROM Files WHERE FileID=$BxFileID;")
     local FileName=$(query_ro "SELECT FileName FROM Files WHERE FileID=$BxFileID;")
 
-    [[ $DEBUG ]] && echo "Checking: $FileName"
+    [[ $DEBUG -gt 0 ]] && echo "Checking: $FileName"
 
     # Now look for another file from the second environment that has the same hash.
     local AxFileID=$(query_ro "SELECT FileID FROM Files WHERE EnvID=$zEA AND Md5hash='$HASH' AND Process=0 LIMIT 1;")
@@ -613,20 +811,25 @@ fi
 
 
 case $1 in
-  init)         echo "Initialised" ;;
-  get|grab)     grab $2 $3  ;;
-  md5|md5sum)   grab $2 $3 md5 ;;
-  process)      process "$2" "$3" ;;
-  process_md5)  process_md5 "$2" "$3" ;;
-  compare)      compare "$2" "$3" "Owner,Groups,Perms" ;;
-  owner)        compare "$2" "$3" "Owner,Groups"       ;;
-  compare_md5)  compare "$2" "$3" "Md5hash" ;;
-  fix)          fix "$2" "$3" ;;
-  find)         find_file "${@:2}" ;;
-  remove_dup)   remove_dup "$2" "$3" ;;
-  missing)      compare  "$2" "$3" "Filename" ;;
-  combine)      combine "$2" ;;
-  *)            usage ;;
+  init)          echo "Initialised"                     ;;
+  get|grab)      grab $2 $3                             ;;
+  md5|md5sum)    grab $2 $3 md5                         ;;
+  chunk)         grab $2 $3 chunk                       ;;
+  process)       process "$2" "$3"                      ;;
+  process_md5)   process_md5 "$2" "$3"                  ;;
+  process_chunk) process_chunk "$2" "$3"                ;;
+  compare)       compare "$2" "$3" "Owner,Groups,Perms" ;;
+  owner)         compare "$2" "$3" "Owner,Groups"       ;;
+  compare_md5)   compare "$2" "$3" "Md5hash"            ;;
+  fix)           fix "$2" "$3"                          ;;
+  find)          find_file "${@:2}"                     ;;
+  remove_dup)    remove_dup "$2" "$3"                   ;;
+  missing)       compare  "$2" "$3" "Filename"          ;;
+  combine)       combine "$2"                           ;;
+  single)        single "$2"                            ;;
+  size)          size_info "$2"                         ;;
+  copy)          copy_missing "$2" "$3"                 ;;
+  *)             usage                                  ;;
 
 esac
 
