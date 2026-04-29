@@ -15,7 +15,8 @@ Recommend in almost all scripts to have this at the top
 set -euo pipefail
 IFS=$'\n\t'
 ```
-This will ensure that if any part of the script fails, the script exits with a failure.  It makes it massively helpful in discovering issues when generating a script.  It will also fail if a variable is refenced that doesnt exist, which also helps in finding a mistyping that might be very hard to notice.
+This will ensure that if any part of the script fails, the script exits with a failure.  It makes it massively helpful in discovering issues when generating a script.  
+It will also fail if a variable is referenced that doesnt exist, which also helps in finding a mistyping that might be very hard to notice.
 
 More very good information about this, can be found here: http://redsymbol.net/articles/unofficial-bash-strict-mode/
 
@@ -138,7 +139,7 @@ cat backup.tar.gz.* | tar xzvf -
 ----
 </details>
 <details>
-<summary>rsync copy of files</summary>  
+<summary>rsync copy of files</summary>
 
 ----
 Copying files from one location to another.  If done as root, can include owner/group of originals. Otherwise, it will be owned by the account it being transferred over.
@@ -153,3 +154,30 @@ rsync -avzHAXPl --exclude=lost+found/ --partial /mnt/downloads  storage1:/mnt
 
 ----
 </details>
+<details>
+<summary>Joining multiple AVI files into a single one</summary>
+
+----
+A long time ago, movies were provided on CD's, but actually had to be one two disks (or more), as the movie couldn't adequately fit on just a single one.  So very old saved versions that were converted into AVI's were on seperate ones.
+
+As an example of file:
+```
+    -rw-rw-r-- 1 cjw 1202  702M Apr  2  2018 Middle Men.cd1.avi
+    -rw-rw-r-- 1 cjw 1202  700M Apr  2  2018 Middle Men.cd2.avi
+    -rw-rw-r-- 1 cjw 1202  698M Apr  3  2018 Mr Nice (2010)-cd1.avi
+    -rw-rw-r-- 1 cjw 1202  699M Apr  3  2018 Mr Nice (2010)-cd2.avi
+    -rw-rw-r-- 1 cjw 1202  2.8G May 15  2018 Ready To Rumble (2000).mp4
+```
+
+In here you can see Middle Men movie is split into two files... but Ready To Rumble is not.
+
+To join the files together, can do it in a single line, but it is important to make the original file names easy... in this example, would have to rename the filenames or it would be difficult to do.
+eg, rename "Middle Men.cd1.avi" to "MiddleMen.cd1.avi" like remove the spaces, and in other examples, remove the parenthesis eg, "(2010)".
+
+```
+ffmpeg -i "concat:MiddleMen.cd1.avi|MiddleMen.cd2.avi" -c copy MiddleMen.avi
+```
+
+----
+</details>
+

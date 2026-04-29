@@ -1,1 +1,0 @@
-../auto_compare/auto_compare.sh

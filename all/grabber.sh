@@ -1,1 +1,0 @@
-../grabber/grabber.sh
