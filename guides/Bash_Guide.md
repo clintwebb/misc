@@ -185,6 +185,7 @@ ffmpeg -i "concat:MiddleMen.cd1.avi|MiddleMen.cd2.avi" -c copy MiddleMen.avi
 
 ----
 Occassionally there is an issue when doing an update, so might want to return to the previous version, or access files on it.
+
 This barely happens, but in my experience, had an actual very minor issue for a long time that was caused by accidentally deleting some config files... but it didnt actually cause any problems other than would show an error.   But a long time later when doing an update, one of the new components updated now broke the system and it could not boot.  Because of the previous known slight issue, decided to actually clean the PC and do a new install... otherwise would have been very hard to fix it.... unless I had a stored clone, could have fixed it very easily.
 
 Some good documentation:
@@ -192,8 +193,10 @@ Some good documentation:
 
 As an example ('-s' is what creates the snapshot):
 ```
-sudo lvcreate -s -L 10G -n root-snap /dev/VolGroup0/lvroot
+sudo lvcreate -s -L 20G -n root-snap /dev/VolGroup0/lvroot
 ```
+
+NOTE, that it is important to guess the space should be reserved.  If it hits the limit, it will stop storing stuff in the snapshot, so wont be able to recover it.
 
 Then, do the update.  
 
