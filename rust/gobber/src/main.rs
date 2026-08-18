@@ -167,7 +167,7 @@ fn set_value(
 // Handler: /data/set?space=some_space&var=server1_svc_stopped&val=true
 async fn set_data_handler(
     State(state): State<AppState>,
-    Query(query): Query<SetDataQuery>,
+    Query(payload): Query<SetDataQuery>,
 ) -> impl IntoResponse {
     match set_value(&state, payload.space, payload.var, payload.val) {
         Ok(_) => Json(serde_json::json!({ "status": "ok" })),
@@ -180,7 +180,7 @@ async fn set_data_handler(
 
 async fn set_data_post_handler(
     State(state): State<AppState>,
-    Json(query): Json<SetDataQuery>,
+    Json(payload): Json<SetDataQuery>,
 ) -> impl IntoResponse {
     match set_value(&state, payload.space, payload.var, payload.val) {
         Ok(_) => Json(serde_json::json!({ "status": "ok" })),
