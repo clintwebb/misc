@@ -30,7 +30,7 @@ impl Default for ServerConfig {
     }
 }
 
-use std::path::{Path, PathBuf};
+// use std::path::{Path, PathBuf};
 
 fn find_config_file() -> Option<PathBuf> {
     let local = PathBuf::from("./goober.ini");
