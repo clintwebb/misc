@@ -108,7 +108,7 @@ async fn set_data_handler(
 
 async fn set_data_post_handler(
     State(state): State<AppState>,
-    Json(payload): Json<SetDataRequest>,
+    Json(payload): Json<SetDataQuery>,
 ) -> impl IntoResponse {
     let mut lock = state.spaces_data.write().unwrap();
     let space_map = lock
