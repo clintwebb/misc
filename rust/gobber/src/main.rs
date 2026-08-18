@@ -8,9 +8,95 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs,
+    path::Path,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
+
+#[derive(Debug, Clone)]
+struct ServerConfig {
+    host: String,
+    port: u16,
+    storage_dir: PathBuf,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "0.0.0.0".to_string(),
+            port: 8080,
+            storage_dir: PathBuf::from("/data/goober"),
+        }
+    }
+}
+
+use std::path::{Path, PathBuf};
+
+fn find_config_file() -> Option<PathBuf> {
+    let local = PathBuf::from("./goober.ini");
+    if local.exists() {
+        return Some(local);
+    }
+
+    let etc_single = PathBuf::from("/etc/goober.ini");
+    if etc_single.exists() {
+        return Some(etc_single);
+    }
+
+    let etc_dir = Path::new("/etc/goober");
+
+    if etc_dir.exists() && etc_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(etc_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+
+                if path.extension().and_then(|s| s.to_str()) == Some("ini") {
+                    return Some(path);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+use configparser::ini::Ini;
+
+fn load_config() -> ServerConfig {
+    let mut cfg = ServerConfig::default();
+
+    let Some(config_file) = find_config_file() else {
+        println!("No configuration file found, using defaults");
+        return cfg;
+    };
+
+    println!("Loading config from {}", config_file.display());
+
+    let mut ini = configparser::ini::Ini::new();
+
+    match ini.load(config_file.to_string_lossy().as_ref()) {
+        Ok(_) => {
+            if let Some(host) = ini.get("Server", "Host") {
+                cfg.host = host;
+            }
+
+            if let Some(port) = ini.get("Server", "Port") {
+                if let Ok(port) = port.parse::<u16>() {
+                    cfg.port = port;
+                }
+            }
+
+            if let Some(storage) = ini.get("Server", "Storage") {
+                cfg.storage_dir = PathBuf::from(storage);
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to load config: {}", e);
+        }
+    }
+
+    cfg
+}
 
 #[derive(Clone)]
 struct AppState {
@@ -96,23 +182,25 @@ fn load_spaces_from_disk(
 
 #[tokio::main]
 async fn main() {
-    // 1. Read ini configuration (Fallback to default if file doesn't exist)
-    let storage_dir = PathBuf::from("./data_store");
+    let config = load_config();
+
+    println!("Host: {}", config.host);
+    println!("Port: {}", config.port);
+    println!("Storage: {}", config.storage_dir.display());
+
+    let storage_dir = config.storage_dir.clone();
+
     fs::create_dir_all(&storage_dir).unwrap();
 
-//    let state = AppState {
-//        storage_dir,
-//        spaces_data: Arc::new(RwLock::new(HashMap::new())),
-//    };
-
     let loaded_data = load_spaces_from_disk(&storage_dir);
+
     println!("Loaded {} spaces", loaded_data.len());
+
     let state = AppState {
-      storage_dir,
-      spaces_data: Arc::new(RwLock::new(loaded_data)),
+        storage_dir,
+        spaces_data: Arc::new(RwLock::new(loaded_data)),
     };
 
-    // 2. Build Router
     let app = Router::new()
         .route("/", get(dashboard_handler))
         .route("/data/set", get(set_data_handler))
@@ -121,10 +209,17 @@ async fn main() {
         .route("/data/clear", get(clear_data_handler))
         .with_state(state);
 
-    // 3. Start Web Server
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    println!("Server running on http://0.0.0.0:8080");
-    axum::serve(listener, app).await.unwrap();
+    let bind_addr = format!("{}:{}", config.host, config.port);
+
+    println!("Binding to {}", bind_addr);
+
+    let listener = tokio::net::TcpListener::bind(&bind_addr)
+        .await
+        .unwrap();
+
+    axum::serve(listener, app)
+        .await
+        .unwrap();
 }
 
 // Handler: Basic Web UI Dashboard
