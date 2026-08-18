@@ -143,50 +143,54 @@ async fn dashboard_handler() -> Html<&'static str> {
     )
 }
 
-// fn set_value(
-//    state: &AppState,
-//    space: String,
-//     var: String,
-//     val: String,
-// ) {
-//    // common logic
-// }
+fn set_value(
+    state: &AppState,
+    space: String,
+    var: String,
+    val: String,
+) -> Result<(), String> {
+    let mut lock = state.spaces_data.write().unwrap();
+    let space_map = lock
+        .entry(space.clone())
+        .or_insert_with(HashMap::new);
+    space_map.insert(var, val);
+
+    let file_path = state.storage_dir.join(format!("{}.json", space));
+    let json = serde_json::to_string_pretty(&*space_map)
+        .map_err(|e| e.to_string())?;
+    fs::write(file_path, json)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 
 // Handler: /data/set?space=some_space&var=server1_svc_stopped&val=true
 async fn set_data_handler(
     State(state): State<AppState>,
     Query(query): Query<SetDataQuery>,
 ) -> impl IntoResponse {
-    let mut lock = state.spaces_data.write().unwrap();
-    let space_map = lock.entry(query.space.clone()).or_insert_with(HashMap::new);
-    space_map.insert(query.var.clone(), query.val.clone());
-
-    // Flush to disk file
-    let file_path = state.storage_dir.join(format!("{}.json", query.space));
-    if let Ok(json) = serde_json::to_string_pretty(&*space_map) {
-        let _ = fs::write(file_path, json);
+    match set_value(&state, payload.space, payload.var, payload.val) {
+        Ok(_) => Json(serde_json::json!({ "status": "ok" })),
+        Err(e) => Json(serde_json::json!({
+            "status": "error",
+            "message": e
+        })),
     }
-
-    Json(serde_json::json!({ "status": "ok" }))
 }
 
 async fn set_data_post_handler(
     State(state): State<AppState>,
-    Json(payload): Json<SetDataQuery>,
+    Json(query): Json<SetDataQuery>,
 ) -> impl IntoResponse {
-    let mut lock = state.spaces_data.write().unwrap();
-    let space_map = lock
-        .entry(payload.space.clone())
-        .or_insert_with(HashMap::new);
-
-    space_map.insert(payload.var.clone(), payload.val.clone());
-
-    let file_path = state.storage_dir.join(format!("{}.json", payload.space));
-    if let Ok(json) = serde_json::to_string_pretty(&*space_map) {
-        let _ = fs::write(file_path, json);
+    match set_value(&state, payload.space, payload.var, payload.val) {
+        Ok(_) => Json(serde_json::json!({ "status": "ok" })),
+        Err(e) => Json(serde_json::json!({
+            "status": "error",
+            "message": e
+        })),
     }
-
-    Json(serde_json::json!({ "status": "ok" }))
+//    set_value( &state, payload.space, payload.var, payload.val, );
+//    Json(serde_json::json!({ "status": "ok" }))
 }
 
 
