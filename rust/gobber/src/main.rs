@@ -37,15 +37,79 @@ struct ClearSpaceQuery {
     space: String,
 }
 
+fn load_spaces_from_disk(
+    storage_dir: &PathBuf,
+) -> HashMap<String, HashMap<String, String>> {
+    let mut spaces = HashMap::new();
+
+    let entries = match fs::read_dir(storage_dir) {
+        Ok(entries) => entries,
+        Err(_) => return spaces,
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+
+        // Only process .json files
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+
+        let space_name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+
+        match fs::read_to_string(&path) {
+            Ok(contents) => {
+                match serde_json::from_str::<HashMap<String, String>>(&contents) {
+                    Ok(space_map) => {
+                        println!(
+                            "Loaded space '{}' with {} variables",
+                            space_name,
+                            space_map.len()
+                        );
+
+                        spaces.insert(space_name, space_map);
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "Failed to parse {}: {}",
+                            path.display(),
+                            err
+                        );
+                    }
+                }
+            }
+            Err(err) => {
+                eprintln!(
+                    "Failed to read {}: {}",
+                    path.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    spaces
+}
+
 #[tokio::main]
 async fn main() {
     // 1. Read ini configuration (Fallback to default if file doesn't exist)
     let storage_dir = PathBuf::from("./data_store");
     fs::create_dir_all(&storage_dir).unwrap();
 
+//    let state = AppState {
+//        storage_dir,
+//        spaces_data: Arc::new(RwLock::new(HashMap::new())),
+//    };
+
+    let loaded_data = load_spaces_from_disk(&storage_dir);
+    println!("Loaded {} spaces", loaded_data.len());
     let state = AppState {
-        storage_dir,
-        spaces_data: Arc::new(RwLock::new(HashMap::new())),
+      storage_dir,
+      spaces_data: Arc::new(RwLock::new(loaded_data)),
     };
 
     // 2. Build Router
