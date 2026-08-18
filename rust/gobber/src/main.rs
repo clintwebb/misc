@@ -25,12 +25,6 @@ struct SetDataQuery {
     var: String,
     val: String,
 }
-#[derive(Deserialize)]
-struct SetDataRequest {
-    space: String,
-    var: String,
-    val: String,
-}
 
 #[derive(Deserialize)]
 struct GetDataQuery {
@@ -57,7 +51,8 @@ async fn main() {
     // 2. Build Router
     let app = Router::new()
         .route("/", get(dashboard_handler))
-        .route("/data/set", get(set_data_handler).post(set_data_handler))
+        .route("/data/set", get(set_data_handler))
+        .route("/data/set", post(set_data_post_handler))
         .route("/data/get", get(get_data_handler))
         .route("/data/clear", get(clear_data_handler))
         .with_state(state);
@@ -102,7 +97,24 @@ async fn set_data_handler(
     Json(serde_json::json!({ "status": "ok" }))
 }
 
+async fn set_data_post_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<SetDataRequest>,
+) -> impl IntoResponse {
+    let mut lock = state.spaces_data.write().unwrap();
+    let space_map = lock
+        .entry(payload.space.clone())
+        .or_insert_with(HashMap::new);
 
+    space_map.insert(payload.var.clone(), payload.val.clone());
+
+    let file_path = state.storage_dir.join(format!("{}.json", payload.space));
+    if let Ok(json) = serde_json::to_string_pretty(&*space_map) {
+        let _ = fs::write(file_path, json);
+    }
+
+    Json(serde_json::json!({ "status": "ok" }))
+}
 
 
 // Handler: /data/get?space=some_space&var=server1_svc_stopped
