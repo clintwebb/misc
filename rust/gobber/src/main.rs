@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Query, State},
-    response::{Html, IntoResponse, Json},
+    extract::{Json, Query, State},
+    response::{Html, IntoResponse},
     routing::{get, post},
     Router,
 };
@@ -21,6 +21,12 @@ struct AppState {
 
 #[derive(Deserialize)]
 struct SetDataQuery {
+    space: String,
+    var: String,
+    val: String,
+}
+#[derive(Deserialize)]
+struct SetDataRequest {
     space: String,
     var: String,
     val: String,
@@ -51,7 +57,7 @@ async fn main() {
     // 2. Build Router
     let app = Router::new()
         .route("/", get(dashboard_handler))
-        .route("/data/set", get(set_data_handler))
+        .route("/data/set", get(set_data_handler).post(set_data_handler))
         .route("/data/get", get(get_data_handler))
         .route("/data/clear", get(clear_data_handler))
         .with_state(state);
@@ -95,6 +101,9 @@ async fn set_data_handler(
 
     Json(serde_json::json!({ "status": "ok" }))
 }
+
+
+
 
 // Handler: /data/get?space=some_space&var=server1_svc_stopped
 async fn get_data_handler(
