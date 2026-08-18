@@ -79,6 +79,15 @@ async fn dashboard_handler() -> Html<&'static str> {
     )
 }
 
+// fn set_value(
+//    state: &AppState,
+//    space: String,
+//     var: String,
+//     val: String,
+// ) {
+//    // common logic
+// }
+
 // Handler: /data/set?space=some_space&var=server1_svc_stopped&val=true
 async fn set_data_handler(
     State(state): State<AppState>,
