@@ -35,6 +35,7 @@ while [[ -n $1 ]]; do
   # Start with the options that do NOT have a value (eg, '--time')
   case $1 in
     --time)    VV_TIME=6 ;;
+
     *)  # If the paramters are done like --hostname="fred" then we want to handle that.
         # We also want to handle it if they done like --hostname fred.
         if [[ $1 == *=* ]]; then
@@ -71,6 +72,12 @@ if [[ $VV_MIN != 0 ]] || [[ $VV_MAX != 0 ]]; then
   VV_AUTO=0
 fi
 
+if [[ $VV_MIN -gt $VV_MAX ]] || [[ $VV_MAX -lt $VV_MIN ]]; then
+  echo "MIN needs to be less than MAX."
+  sleep 2
+  exit 1
+fi
+
 xMIN=$VV_MIN
 xMAX=$VV_MAX
 
@@ -89,14 +96,16 @@ while read -r line; do
   fi
 
   # Calculate the number of cells we have to display the plot.
-  # xCELLS=$(( $xWIDTH - ${#line} - 2 - ${#xMIN} - 3 - ${#xMAX} - $VV_TIME ))
   xCELLS=$(( $xWIDTH - ${#xMAX} - 2 - ${#xMIN} - 3 - ${#xMAX} - $VV_TIME ))
 
   if [[ $line -gt $xMAX ]]; then
     CHA=$((xCELLS))
     CHB=0
     [[ $VV_AUTO -gt 0 ]] && CHC='^' || CHC='X'
-    #CHC='X'
+  elif [[ $line -le $xMIN ]]; then
+    CHA=0
+    CHB=$((xCELLS))
+    [[ $line -lt $xMIN ]] && CHC='<' || CHC='X'
   else
     (( xCELLS *= 10000 ))
     SPLIT=$(( xMAX - xMIN + 1 ))
@@ -106,10 +115,9 @@ while read -r line; do
     (( CHA-- ))
     (( xCELLS /= 10000 ))
     CHB=$((xCELLS - CHA))
-    #CHB=1
     CHC=${VV_MARK:0:1}    # Only use the first digit of whatever string might have been provided.
   fi
-  #declare -p line xWIDTH xCELLS xMIN xMAX
+
   if [[ $VV_TIME -gt 0 ]]; then
     echo -n "$(date "+%H:%M")"
     echo -n ' '
