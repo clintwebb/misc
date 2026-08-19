@@ -149,31 +149,14 @@ fn load_spaces_from_disk(
         match fs::read_to_string(&path) {
             Ok(contents) => {
                 match serde_json::from_str::<HashMap<String, String>>(&contents) {
-                    Ok(space_map) => {
-                        println!(
-                            "Loaded space '{}' with {} variables",
-                            space_name,
-                            space_map.len()
-                        );
-
+                    Ok(space_map) => { 
+                        println!("Loaded space '{}' with {} variables", space_name, space_map.len() );
                         spaces.insert(space_name, space_map);
                     }
-                    Err(err) => {
-                        eprintln!(
-                            "Failed to parse {}: {}",
-                            path.display(),
-                            err
-                        );
-                    }
+                    Err(err) => { eprintln!("Failed to parse {}: {}", path.display(), err ); }
                 }
             }
-            Err(err) => {
-                eprintln!(
-                    "Failed to read {}: {}",
-                    path.display(),
-                    err
-                );
-            }
+            Err(err) => { eprintln!( "Failed to read {}: {}", path.display(), err ); }
         }
     }
 
@@ -189,11 +172,8 @@ async fn main() {
     println!("Storage: {}", config.storage_dir.display());
 
     let storage_dir = config.storage_dir.clone();
-
     fs::create_dir_all(&storage_dir).unwrap();
-
     let loaded_data = load_spaces_from_disk(&storage_dir);
-
     println!("Loaded {} spaces", loaded_data.len());
 
     let state = AppState {
@@ -210,9 +190,7 @@ async fn main() {
         .with_state(state);
 
     let bind_addr = format!("{}:{}", config.host, config.port);
-
     println!("Binding to {}", bind_addr);
-
     let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await
         .unwrap();
@@ -258,7 +236,6 @@ fn set_value(
     Ok(())
 }
 
-
 // Handler: /data/set?space=some_space&var=server1_svc_stopped&val=true
 async fn set_data_handler(
     State(state): State<AppState>,
@@ -284,8 +261,6 @@ async fn set_data_post_handler(
             "message": e
         })),
     }
-//    set_value( &state, payload.space, payload.var, payload.val, );
-//    Json(serde_json::json!({ "status": "ok" }))
 }
 
 
