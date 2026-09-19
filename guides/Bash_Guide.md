@@ -193,7 +193,7 @@ Some good documentation:
 
 As an example ('-s' is what creates the snapshot):
 ```
-sudo lvcreate -s -L 20G -n root-snap /dev/VolGroup0/lvroot
+sudo lvcreate -s -L 30G -n root-snap /dev/VolGroup0/lvroot
 ```
 
 NOTE, that it is important to guess the space should be reserved.  If it hits the limit, it will stop storing stuff in the snapshot, so wont be able to recover it.
