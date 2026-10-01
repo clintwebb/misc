@@ -27,3 +27,23 @@ git push origin --delete example
 ```
 ----
 </details>
+
+
+<details>
+<summary>Fixing a mistake of pushing a branch</summary>
+
+----
+If there is a situation where have another branch (Using `example` as the name of the branch), and accidentally merge it into the main branch and push it.  
+Dont want that branch merged into main yet, so need to remove that change.
+```
+# To find the key of the previous branch (before the merge)
+git log --online
+
+# and then revert it.
+git revert -m 1 <merge_commit_hash>
+
+# and then push it
+git push
+```
+----
+</details>
