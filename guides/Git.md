@@ -38,9 +38,19 @@ Dont want that branch merged into main yet, so need to remove that change.
 ```
 # To find the key of the previous branch (before the merge)
 git log --online
-
+```
+Which gives a result like this
+```
+$ git log --oneline
+f8de003 (HEAD -> main, origin/main, origin/HEAD) Merge branch 'example' into main
+c364785 (example) Testing teams chat notice
+3864cd3 (airlock) minor change
+... 
+```
+Need to pick the previous hash before that wrong merge.  In this example, it is `3864cd3`
+```
 # and then revert it.
-git revert -m 1 <merge_commit_hash>
+git revert -m 1 3864cd3
 
 # and then push it
 git push
